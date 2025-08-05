@@ -1,5 +1,5 @@
 # main.py
-from fastapi import FastAPI, Header, HTTPException, Depends
+from fastapi import FastAPI, Header, HTTPException, Depends, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, validator
 from typing import List, Union, Any
@@ -45,6 +45,10 @@ class RunResponse(BaseModel):
 
 # ───────── APP ─────────────
 app = FastAPI(title="HackRX RAG Service")
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return {"status": "ok"}
 
 # Health check endpoint
 @app.get("/health")
