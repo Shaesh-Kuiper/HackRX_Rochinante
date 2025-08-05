@@ -51,6 +51,10 @@ app = FastAPI(title="HackRX RAG Service")
 async def health_check():
     return {"status": "healthy"}
 
+@app.head("/health")
+async def health_check_head():
+    return Response(status_code=200)
+
 # import your pipeline objects here
 from rag_pipeline import answer_questions   # see §3
 @app.post("/api/v1/hackrx/run",  response_model=RunResponse)
