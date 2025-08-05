@@ -54,7 +54,7 @@ async def health_check():
 # import your pipeline objects here
 from rag_pipeline import answer_questions   # see §3
 
-@app.post("/api/v1/hackrx/run", response_model=RunResponse)
+@app.post("/hackrx/run", response_model=RunResponse)
 async def hackrx_run(
         payload: RunRequest,
         creds: HTTPAuthorizationCredentials = Depends(security)
