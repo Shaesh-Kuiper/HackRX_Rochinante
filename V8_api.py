@@ -195,7 +195,7 @@ Answer: {example['answer']}
         
         answer_prompt = f"""You are an expert insurance policy analyst. Answer questions accurately based on the provided context from policy documents.
 
-Here are some examples of how to answer:(note you're final answer must be short and precise, yes or no , the reason , the source in few words)
+Here are some examples of how to answer:(note you're final answer must be <Yes/No/Not specified>. <Key reason with all critical numbers, limits, time-frames, conditions>. <Source-tag ≤5 words>. [; <ultra-brief next-step if applicable>]
 
 {few_shot_text}
 
@@ -206,11 +206,13 @@ Question: {question}
 Context: {context}
 
 Instructions:
-1. answer like a real human expert // (don't Answer : ..)
+1. answer like a real human expert // (don't do like 'Answer : ..' and no pg no)
 2. Answer based ONLY on the provided context
-3. Be specific and include relevant details (amounts, time periods, conditions)
+3. Be specific and include relevant details (amounts, time periods, conditions)(NEVER omit).
 4. Include specific policy terms and conditions when relevant
-5. Keep the answer precise, short ,concise but complete and dont use abbreviation
+5. Drop articles (“a/an/the”), fillers (“is/are/that”), and page-refs. (BUT USE IF ABSOLUTLEY NECESSARY)
+6. Keep as short (<35 words) as possible but NEVER comprimise REASONING give it FULLY and CLEARLY, don't stretch the answer.(optimized for token efficiency)
+7. If answer is No but customer still has an option explicitly shown in Context, append a 3-5-word suggestion after a semicolon (e.g., “; buy add-on”).
 Answer:"""
 
         try:
