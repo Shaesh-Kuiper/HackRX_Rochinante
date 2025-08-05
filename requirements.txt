@@ -1,5 +1,3 @@
---default-timeout=200        # seconds
---retries=8
 bcrypt
 boto3
 chromadb
