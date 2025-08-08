@@ -18,26 +18,24 @@ class RunRequest(BaseModel):
     def validate_documents(cls, v: Any) -> Union[str, List[str]]:
         # Handle string input
         if isinstance(v, str):
+            # If it's a JSON-like list string, try to parse it first
+            if v.strip().startswith('[') and v.strip().endswith(']'):
+                try:
+                    import json
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list) and all(isinstance(item, str) for item in parsed):
+                        return parsed
+                except json.JSONDecodeError:
+                    pass
+            # Otherwise treat it as a single document string
             return v
-        
+
         # Handle list input
         if isinstance(v, list):
-            # Ensure all items in list are strings
             if all(isinstance(item, str) for item in v):
                 return v
-            else:
-                raise ValueError("All items in documents list must be strings")
-        
-        # Handle edge cases (like string representation of list)
-        if isinstance(v, str) and v.startswith('[') and v.endswith(']'):
-            try:
-                import json
-                parsed = json.loads(v)
-                if isinstance(parsed, list) and all(isinstance(item, str) for item in parsed):
-                    return parsed
-            except json.JSONDecodeError:
-                pass
-        
+            raise ValueError("All items in documents list must be strings")
+
         raise ValueError("documents must be a string or list of strings")
 
 class RunResponse(BaseModel):
@@ -83,3 +81,7 @@ async def hackrx_run(
     answers = await answer_questions(doc_urls, payload.questions)
 
     return RunResponse(answers=answers)
+
+@app.on_event("shutdown")
+async def _shutdown_cleanup():
+    await net_utils.shared_session.close()
