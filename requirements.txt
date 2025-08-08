@@ -27,3 +27,4 @@ aiohttp
 html2text
 python-docx
 aiofiles
+azure-storage-blob
