@@ -1,6 +1,7 @@
 # rag_pipeline.py
 import os
 import asyncio
+import tempfile
 from typing import List, Tuple
 from urllib.parse import urlparse
 import hashlib
@@ -10,9 +11,6 @@ import shutil
 
 import net_utils
 from V8_api import run_rag_pipeline_v8
-
-CACHE_DIR = os.path.join(os.getcwd(), "cache_pdfs")
-os.makedirs(CACHE_DIR, exist_ok=True)
 
 # Tunables
 MAX_FILE_CONCURRENCY = int(os.getenv("DL_MAX_FILE_CONCURRENCY", "24"))   # how many files at once
@@ -34,13 +32,6 @@ def _is_azure_blob(url: str) -> bool:
         return u.netloc.endswith(".blob.core.windows.net")
     except Exception:
         return False
-
-def _safe_pdf_filename(src: str) -> str:
-    base = pathlib.Path(urlparse(src).path).name or "document.pdf"
-    if not base.lower().endswith(".pdf"):
-        base += ".pdf"
-    h = hashlib.sha1(src.encode("utf-8")).hexdigest()[:12]
-    return f"{h}_{base}"
 
 async def _download_stream(url: str, dest_path: str) -> str:
     tmp = dest_path + ".downloading"
@@ -109,10 +100,6 @@ async def _download_segmented(url: str, dest_path: str, total_size: int):
     return dest_path
 
 async def _download_one_http(url: str, dest_path: str) -> str:
-    # If already downloaded (nonzero), skip
-    if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-        return dest_path
-
     size, ranges_ok = await _head_content_length(url)
     # If we know it's large and ranges are OK → parallel ranges
     if size and size >= 2 * SEGMENT_SIZE and ranges_ok:
@@ -122,9 +109,6 @@ async def _download_one_http(url: str, dest_path: str) -> str:
 
 async def _download_one_azure(url: str, dest_path: str) -> str:
     from azure.storage.blob.aio import BlobClient  # requires azure-storage-blob
-
-    if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-        return dest_path
 
     tmp = dest_path + ".downloading"
     max_concurrency = int(os.getenv("AZ_BLOB_MAX_CONCURRENCY", str(MAX_SEGMENTS_PER_FILE)))
@@ -156,10 +140,11 @@ async def _materialize_docs(document_urls: List[str]) -> List[str]:
     for src in document_urls:
         src = src.strip()
         if _is_url(src):
-            fname = _safe_pdf_filename(src)
-            dest = os.path.join(CACHE_DIR, fname)
-            downloads.append((src, dest))
-            local_paths.append(dest)
+            # Create temporary file for each URL
+            temp_fd, temp_path = tempfile.mkstemp(suffix='.pdf', prefix='download_')
+            os.close(temp_fd)  # Close the file descriptor, we'll write to the path
+            downloads.append((src, temp_path))
+            local_paths.append(temp_path)
         else:
             if not os.path.exists(src):
                 raise FileNotFoundError(f"Document not found: {src}")
