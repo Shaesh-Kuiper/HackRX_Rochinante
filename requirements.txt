@@ -28,3 +28,5 @@ html2text
 python-docx
 aiofiles
 azure-storage-blob
+tiktoken
+rank_bm25
