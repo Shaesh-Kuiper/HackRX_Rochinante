@@ -1,21 +1,14 @@
-# RAG Approach Comparison
+# Comparison with differnet SOTA RAG Approaches 
 
-| Feature / Aspect                     | **Our System** (LLM-first Lexical Refinement)                                       | **RAPTOR** (Tree Summaries)                                      | **LongRAG** (Long-context Retrieval)                             | **MacRAG / MaC-RAG** (Memory-Augmented Conversational RAG)       |
-|---------------------------------------|--------------------------------------------------------------------------------------|-------------------------------------------------------------------|-------------------------------------------------------------------|-------------------------------------------------------------------|
-| **Initial Step**                      | LLM **refines the query first**, generating multi-level lexical synonyms tailored to match headings & semantic meaning | Builds **hierarchical summaries** of the corpus before retrieval | Uses very large context windows to stuff in as much source text as possible | Stores & retrieves **conversation history** alongside new context |
-| **Retrieval Core**                    | Hybrid **BM25 + FAISS** → RRF fusion → MMR diversification                           | Graph/tree traversal over summary hierarchy                      | Vector search or BM25 → feed many chunks directly into LLM        | Vector search + memory store retrieval                           |
-| **Reranking**                         | GPU **cross-encoder** rerank (batched across all Qs)                                 | Usually not GPU-rerank focused                                    | Often no rerank or lightweight rerank                             | Often no rerank or lightweight rerank                             |
-| **Latency Strategy**                  | Heavy **parallelism + caching**; one-pass rerank for all Qs                           | Slower due to summary creation & multi-hop reasoning              | Can be slow/expensive due to huge context token count             | Moderate; depends on memory store size                           |
-| **Explainability**                    | Returns **exact clause snippets** used for the answer                                | Can reference summary nodes, but less direct to original text     | Direct, but often from large context without fine-grained targeting | May show snippets from memory or retrieved docs                   |
-| **Adaptability to Noisy Queries**     | High — query refinement handles typos, vague/incomplete phrasing                      | Moderate — depends on how well summaries capture rare phrasing    | Moderate — large context may help, but retrieval may still miss   | Moderate — conversation context may help, but not for one-off Qs |
-| **Preprocessing Needs**               | Low — works directly on raw docs (PDF/DOCX/email)                                     | High — needs to pre-build and maintain summary trees              | Low–moderate — needs embeddings & vector store                    | Moderate — needs embeddings & memory management                  |
+| Aspect (Top-5)            | **Our System (LLM-first Lexical Refinement)**                               | **RAPTOR** (Tree Summaries)              | **LongRAG** (Long Context)                   | **MacRAG / MaC-RAG** (Conv. Memory)        | **Why this is better** |
+|---------------------------|---------------------------------------------------------------------|------------------------------------------|----------------------------------------------|--------------------------------------------|------------------------|
+| 1) Vague Query Handling   | **LLM refines into 3 lexical tiers** → higher hit rate              | Depends on summary quality               | Big context may still miss exact targets     | Helps across turns; weaker for one-offs    | Turns messy asks into **precise probes** without corpus prep → **higher recall** on ambiguous inputs. |
+| 2) Retrieval Precision    | **BM25 + FAISS → RRF → MMR** + **GPU cross-encoder rerank**         | Summary traversal, less fine-grained     | Broad recall, lower precision                | Memory + basic retrieval                   | Blends lexical + semantic, **de-dupes**, then **reranks with a cross-encoder** → **fewer misses & shorter context**. |
+| 3) Evidence & Explainability | **Clause-level snippets** returned                              | Points to summaries, not clauses         | Evidence buried in long context              | Snippets from memory/docs                  | Direct **clause citations** → **audit-ready**, traceable, easy to validate. |
+| 4) Latency & Cost         | **Async + batching; one-pass `/rerank_pairs`** (token-lean)         | Prep & multi-hop add latency/cost        | Large token windows = slower, pricier        | Grows with memory size/state               | **Throughput↑, cost↓**; scales to many Qs under tight SLOs with **stable latency**. |
+| 5) Setup & Maintenance    | **Low** — raw PDFs/DOCX/emails + caching                            | **High** — build/maintain trees          | Low–mod; heavy context mgmt                  | Mod — memory policies/state to manage      | **Fast onboarding**, minimal plumbing, resilient to document updates. |
 
 ---
 
-**Summary of Strengths**
-
-Our system **wins** in scenarios where:
-- Queries are **vague, incomplete, or noisy** — the LLM-first refinement intelligently shapes them into high-precision lexical and semantic probes.
-- **Speed and scale** matter — aggressive async, batching, and one-pass GPU rerank keep latency low even for many queries at once.
-- **Explainability is critical** — clause-level, document-grounded citations come built-in.
-- **No heavy preprocessing** is feasible — works directly from source documents without building and maintaining large summary graphs or long-memory stores.
+## Why we win 
+We **ask smarter first**. LLM-guided query refinement + hybrid search + GPU rerank yields **exact clauses fast**, with **low prep and cost**—perfect for policies/contracts/emails where questions are messy but answers must be **accurate, explainable, and quick**.
