@@ -6,9 +6,12 @@ faiss-cpu==1.7.4  # Use faiss-gpu if you have CUDA
 rank-bm25==0.2.2
 tiktoken==0.5.2
 PyPDF2==3.0.1
+fastapi
+uvicorn
+httpx==0.25.0
 
 # OpenAI
-openai==1.6.1
+openai==1.35.0
 
 # For Colab reranker service
 transformers==4.36.2
