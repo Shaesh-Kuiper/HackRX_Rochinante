@@ -25,7 +25,8 @@ except Exception:
 
 # Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-api-key-here")
-RERANKER_URL = "https://bb5e5fbf2d8c.ngrok-free.app/rerank"  # Update with your ngrok URL
+RERANKER_URL = "https://c27ef0ec42c9.ngrok-free.app/rerank"  # Update with your ngrok URL
+RERANKER_PAIRS_URL = "https://c27ef0ec42c9.ngrok-free.app/rerank_pairs"  # Update with your ngrok URL
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 60
 TOP_K_CANDIDATES = 50
@@ -972,8 +973,7 @@ async def process_rag_pipeline(
                 })
 
         with Timer("PHASE 5b: ONE cross-encoder rerank for all questions"):
-            rerank_url = f"{RERANKER_URL.rstrip('/rerank')}/rerank_pairs" if RERANKER_URL.endswith("/rerank") else f"{RERANKER_URL.rstrip('/')}/rerank_pairs"
-            async with session.post(rerank_url, json={"pairs": pairs_payload, "top_k_per_q": RERANK_TOP_K}) as resp:
+            async with session.post(RERANKER_PAIRS_URL, json={"pairs": pairs_payload, "top_k_per_q": RERANK_TOP_K}) as resp:
                 resp.raise_for_status()
                 batch = await resp.json()
 
@@ -1137,8 +1137,7 @@ async def main():
                 })
 
         with Timer("PHASE 5b: ONE cross-encoder rerank for all questions"):
-            rerank_url = f"{RERANKER_URL.rstrip('/rerank')}/rerank_pairs" if RERANKER_URL.endswith("/rerank") else f"{RERANKER_URL.rstrip('/')}/rerank_pairs"
-            async with session.post(rerank_url, json={"pairs": pairs_payload, "top_k_per_q": RERANK_TOP_K}) as resp:
+            async with session.post(RERANKER_PAIRS_URL, json={"pairs": pairs_payload, "top_k_per_q": RERANK_TOP_K}) as resp:
                 resp.raise_for_status()
                 batch = await resp.json()
 
