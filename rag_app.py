@@ -25,8 +25,8 @@ except Exception:
 
 # Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-api-key-here")
-RERANKER_URL = "https://c27ef0ec42c9.ngrok-free.app/rerank"  # Update with your ngrok URL
-RERANKER_PAIRS_URL = "https://c27ef0ec42c9.ngrok-free.app/rerank_pairs"  # Update with your ngrok URL
+RERANKER_URL = "https://2da812c6ba00.ngrok-free.app/rerank"  # Update with your ngrok URL
+RERANKER_PAIRS_URL = "https://2da812c6ba00.ngrok-free.app/rerank_pairs"  # Update with your ngrok URL
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 60
 TOP_K_CANDIDATES = 50
