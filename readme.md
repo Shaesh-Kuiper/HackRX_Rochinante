@@ -1,87 +1,93 @@
-# HackRxRAG Application
+# High-Performance Asynchronous RAG API
 
-Async retrieval-augmented generation (RAG) system for answering questions over policy and legal PDF/DOCX documents highly optimised for rapid indexing to answer generation.
-Hybrid search (BM25 + FAISS) combined with GPT-4o-mini answer generation. Built for low-latency throughput using parallel downloads, batched embeddings, and multi-level caching.
+A production-ready Retrieval-Augmented Generation (RAG) API built with FastAPI and Python. 
 
-## How it works
+**Engineered for Maximum Speed:** This system is fiercely optimized for end-to-end velocity. From concurrent, chunked byte-range downloading and intelligent local caching, to lightning-fast unified indexing and asynchronous answer generation, every component is designed to minimize latency without sacrificing accuracy.
 
-1. Downloads documents in parallel (range-request HTTP, cached to disk)
-2. Chunks text respecting paragraph boundaries
-3. Embeds chunks via `text-embedding-3-small`, indexes with BM25 + FAISS
-4. Refines each query with GPT (extracts keywords, cleans phrasing)
-5. Hybrid search: 55% BM25 lexical + 45% FAISS semantic, fused via RRF, reranked via MMR
-6. Generates a concise answer with GPT-4o-mini from the top passages
+## Core Architecture & Features
 
-## Prerequisites
+* Hybrid Retrieval: Combines dense semantic search (FAISS) with sparse lexical matching (BM25 Okapi) for context awareness and exact-keyword precision.
+* Lightweight Ranking (RRF & MMR): Fuses search strategies using Reciprocal Rank Fusion, then applies Maximal Marginal Relevance to maximize context diversity and reduce redundancy. 
+  > Note: The heavy neural cross-encoder reranking stage has been intentionally removed from this pipeline due to GPU constraints. RRF and MMR efficiently bridge this gap, ensuring high relevance without the massive compute overhead.
+* Async Downloads: Employs concurrent, chunked byte-range requests via aiohttp to download large files at maximum network throughput.
+* Local Caching: Hashes and caches PDF binaries, text chunks, embeddings, and vector indices locally to bypass processing entirely on repeat queries.
+* Query Refinement: Uses a fast LLM pass to strip noise from user questions and extract specific keywords before executing vector search.
 
-```
-pip install openai aiohttp uvicorn fastapi pydantic numpy PyMuPDF python-docx rank-bm25 faiss-cpu
-```
+## Setup Instructions
 
-Set your OpenAI key:
+1. Prerequisites: Ensure you have Python 3.9+ installed.
+2. Install Dependencies:
+   pip install fastapi uvicorn aiohttp openai pymupdf python-docx rank_bm25 faiss-cpu numpy pydantic uvloop
 
-```
-export OPENAI_API_KEY="sk-..."   # Linux/macOS
-$env:OPENAI_API_KEY="sk-..."    # Windows PowerShell
-```
+3. Environment Variables:
+   Set your OpenAI API key (required for text-embedding-3-small and gpt-4o-mini).
+   Windows: set OPENAI_API_KEY="your-api-key-here"
+   Mac/Linux: export OPENAI_API_KEY="your-api-key-here"
 
-## Run as a server
+## Running the Server
 
-```
+Start the FastAPI server by running the script directly:
 python rag_server.py
-```
 
-Starts on `http://0.0.0.0:8000`.
+The server will initialize on http://0.0.0.0:8000
 
-**Health check:**
-```
-GET /health
-```
+## Using Custom PDFs
 
-**Query endpoint** (Bearer token required):
-```
-POST /hackrx/run
-Authorization: Bearer 0d40085aa1ab7502b99a71688edfb832121051dc7afd7ad9c3f4acff3c4fe176
-Content-Type: application/json
+This API is strictly designed to process raw binary file streams. Standard cloud storage sharing links (like Google Drive) will fail because they return a web-viewer HTML page, not the file itself.
 
+To use your own documents:
+1. Upload your .pdf or .docx file to a public GitHub repository.
+2. Open the file in GitHub and click the "Raw" button in the top right.
+3. Copy the URL from your browser (it must start with https://raw.githubusercontent.com/...).
+4. Use this raw URL in your API requests.
+
+## Testing the API
+
+Note: All operational endpoints are secured. You must use the following Bearer token:
+0d40085aa1ab7502b99a71688edfb832121051dc7afd7ad9c3f4acff3c4fe176
+
+**Example Files for Testing:**
+You can use any of these sample documents to test the system:
+- https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc1.pdf
+- https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc2.pdf
+- https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc3.pdf
+- https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc4.pdf
+- https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc5.pdf
+
+**Batch Processing:**
+The API natively supports batching for maximum throughput. You can pass multiple document URLs and multiple questions in a single request, and the system will process them concurrently.
+
+Method 1: Interactive Swagger UI (Recommended)
+1. Navigate to: http://localhost:8000/docs
+2. Click the "Authorize" button (padlock icon).
+3. Enter the token above into the Value field, click Authorize, then Close.
+4. Open the POST /api/v1/hackrx/run endpoint and click "Try it out".
+5. Use the following JSON body to test multiple files and questions:
 {
-  "documents": "https://example.com/policy.pdf",
-  "questions": ["What is the age limit for a dependent child?"]
+  "documents": [
+    "https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc1.pdf",
+    "https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc2.pdf"
+  ],
+  "questions": [
+    "What is the limit of indemnity payable for cleaning out the engine?",
+    "According to the Definitions section, what is the exact age limit defined for a 'Dependent Child'?"
+  ]
 }
-```
+6. Click Execute.
 
-`documents` and `questions` each accept a single string or a list of strings.
-
-**Response:**
-```json
-{ "answers": ["The dependent child age limit is 25 years."] }
-```
-
-## Run standalone (demo)
-
-```
-python rag_app.py
-```
-
-Runs against a hardcoded sample PDF and prints answers to stdout. Edit `main()` at the bottom of `rag_app.py` to change the URLs and questions.
-
-## Caching
-
-Processed documents (chunks, embeddings, BM25/FAISS indices) are cached under:
-- Windows: `%LOCALAPPDATA%\Temp\rag_cache\`
-- Raw PDF bytes: `%LOCALAPPDATA%\Temp\pdf_cache\`
-
-Cache is keyed by URL. Subsequent requests for the same document skip all processing.
-
-## Configuration
-
-All tuneable constants are at the top of `rag_app.py`:
-
-| Constant | Default | Purpose |
-|---|---|---|
-| `CHUNK_SIZE` | 600 | Words per chunk |
-| `CHUNK_OVERLAP` | 150 | Overlap between chunks |
-| `TOP_K_CANDIDATES` | 50 | Candidates from hybrid search |
-| `FINAL_TOP_K` | 12 | Passages passed to the LLM |
-| `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
-| `COMPLETION_MODEL` | `gpt-4o-mini` | OpenAI completion model |
+Method 2: Standard POST Request (cURL)
+curl -X 'POST' \
+  'http://localhost:8000/api/v1/hackrx/run' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer 0d40085aa1ab7502b99a71688edfb832121051dc7afd7ad9c3f4acff3c4fe176' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "documents": [
+    "https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc1.pdf",
+    "https://raw.githubusercontent.com/Shaesh-Kuiper/HackRX_Rochinante/main/doc2.pdf"
+  ],
+  "questions": [
+    "What is the limit of indemnity payable for cleaning out the engine?",
+    "According to the Definitions section, what is the exact age limit defined for a '\''Dependent Child'\''?"
+  ]
+}'
