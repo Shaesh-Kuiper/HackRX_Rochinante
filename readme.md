@@ -1,301 +1,87 @@
-# OpenRAG - High-Performance RAG System
+# HackRxRAG Application
 
-A lightning-fast Retrieval-Augmented Generation (RAG) system designed to process documents and answer questions in under 20 seconds. OpenRAG combines advanced document processing, hybrid search, and GPU-accelerated reranking to deliver accurate answers from various document formats.
+Async retrieval-augmented generation (RAG) system for answering questions over policy and legal PDF/DOCX documents highly optimised for rapid indexing to answer generation.
+Hybrid search (BM25 + FAISS) combined with GPT-4o-mini answer generation. Built for low-latency throughput using parallel downloads, batched embeddings, and multi-level caching.
 
-## 🚀 Features
+## How it works
 
-- **Sub-20 Second Performance**: Optimized pipeline with aggressive caching and parallel processing
-- **Multi-Format Support**: PDF, DOCX, and email documents
-- **Hybrid Search**: Combines BM25 (sparse) and dense vector search with FAISS
-- **Advanced Query Processing**: Automatic query refinement with lexical expansion
-- **GPU-Accelerated Reranking**: Uses BAAI/bge-reranker-v2-m3 model on A100 GPU
-- **Intelligent Caching**: Document and embedding caching for repeated queries
-- **Parallel Processing**: Concurrent downloads, embeddings, and completions
-- **RESTful API**: FastAPI-based server with comprehensive endpoints
+1. Downloads documents in parallel (range-request HTTP, cached to disk)
+2. Chunks text respecting paragraph boundaries
+3. Embeds chunks via `text-embedding-3-small`, indexes with BM25 + FAISS
+4. Refines each query with GPT (extracts keywords, cleans phrasing)
+5. Hybrid search: 55% BM25 lexical + 45% FAISS semantic, fused via RRF, reranked via MMR
+6. Generates a concise answer with GPT-4o-mini from the top passages
 
-## 🏗️ Architecture
+## Prerequisites
 
-### Core Components
-
-1. **`rag_app.py`** - Main RAG pipeline with:
-   - Document download and parsing
-   - Text chunking (500 tokens, 60 overlap)
-   - Parallel embedding generation
-   - Hybrid search (BM25 + dense)
-   - MMR (Maximal Marginal Relevance) for diversity
-   - Cross-encoder reranking
-
-2. **`rag_server.py`** - FastAPI server providing:
-   - `/hackrx/run` - Main RAG endpoint
-   - `/api/v1/hackrx/run` - API v1 endpoint
-   - `/health` - Health check endpoint
-   - Authentication and CORS support
-
-3. **`Colab_reranker_instance.ipynb`** - GPU reranker service:
-   - BAAI/bge-reranker-v2-m3 model
-   - Batch processing optimization
-   - A100 GPU acceleration
-   - Ngrok tunnel for external access
-
-## 🛠️ Tech Stack
-
-### Core Technologies
-- **Python 3.8+** - Main programming language
-- **FastAPI** - Web framework for API server
-- **OpenAI API** - LLM for embeddings and completions
-- **PyMuPDF (fitz)** - PDF processing
-- **python-docx** - DOCX document processing
-- **FAISS** - Vector similarity search
-- **asyncio/aiohttp** - Asynchronous processing
-
-### Machine Learning
-- **OpenAI text-embedding-3-small** - Document embeddings
-- **OpenAI gpt-4.1-nano** - Answer generation
-- **BAAI/bge-reranker-v2-m3** - Cross-encoder reranking
-- **FlagEmbedding** - Reranking framework
-- **transformers** - Model loading and inference
-
-### Search & Retrieval
-- **rank_bm25** - BM25 sparse retrieval
-- **numpy** - Numerical computations
-- **scikit-learn** - Additional ML utilities
-
-## 📋 Workflow
-
-The RAG pipeline follows this optimized workflow:
-
-### 1. Parallel Document Processing
 ```
-Document URL → Download (with caching) → Parse → Chunk (500/60) → Cache
+pip install openai aiohttp uvicorn fastapi pydantic numpy PyMuPDF python-docx rank-bm25 faiss-cpu
 ```
 
-### 2. Query Refinement
-For each input query, the system generates:
-- **Cleaned**: Grammar and spelling corrections
-- **Refined**: Contextually relevant reformulation
-- **Lexical 1-3**: Synonymous terms for better retrieval
+Set your OpenAI key:
 
-Example:
-```json
-{
-  "query": "Msed my train, cnacelled, riot, will I get covered?",
-  "cleaned": "my train was cancelled due to a riot will the policy cover for it?",
-  "refined": "coverage for train cancellation due to riots",
-  "lexical_1": ["train", "rail", "carriage", "railcar", "wagon"],
-  "lexical_2": ["cancelled", "postponed", "delayed"],
-  "lexical_3": ["riot", "mob", "uproar", "unrest", "protest"]
-}
+```
+export OPENAI_API_KEY="sk-..."   # Linux/macOS
+$env:OPENAI_API_KEY="sk-..."    # Windows PowerShell
 ```
 
-### 3. Hybrid Search Pipeline
+## Run as a server
+
 ```
-Query → Embedding → Dense Search (FAISS) + Sparse Search (BM25) → 
-RRF Fusion → MMR Deduplication → Top 30 Candidates
-```
-
-### 4. GPU Reranking
-```
-Top 30 Candidates → Cross-Encoder Reranking → Top 3 Results → Answer Generation
-```
-
-## 🚀 Installation
-
-### Prerequisites
-- Python 3.8 or higher
-- OpenAI API key
-- Google Colab account (for GPU reranker)
-
-### Local Setup
-
-1. **Clone the repository**
-```bash
-git clone https://github.com/Shaesh-Kuiper/HackRX_Rochinante.git
-cd HackRX_Rochinante
-```
-
-2. **Create virtual environment**
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. **Install dependencies**
-```bash
-pip install -r requirements.txt
-```
-
-### GPU Reranker Setup (Google Colab)
-
-1. **Open the Colab notebook**
-   - Upload `Colab_reranker_instance.ipynb` to Google Colab
-   - Ensure A100 GPU runtime is selected
-
-2. **Run the setup cells**
-   - Install dependencies
-   - Initialize the reranker model
-   - Start the FastAPI server with ngrok tunnel
-
-3. **Copy the ngrok URL**
-   - Update `RERANKER_URL` in `rag_app.py` and `rag_server.py`
-
-## 🔑 API Key Setup
-
-### OpenAI API Key
-
-1. **Get your API key**
-   - Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-   - Create a new API key
-
-2. **Set environment variable**
-
-**Windows:**
-```cmd
-set OPENAI_API_KEY=your-api-key-here
-```
-
-**Linux/macOS:**
-```bash
-export OPENAI_API_KEY=your-api-key-here
-```
-
-3. **Or update the code directly**
-```python
-# In rag_app.py
-OPENAI_API_KEY = "your-api-key-here"
-```
-
-### Authentication Token
-
-The API uses bearer token authentication. Update the token in `rag_server.py`:
-```python
-EXPECTED_AUTH_TOKEN = "your-secure-token-here"
-```
-
-## 🏃‍♂️ Usage
-
-### Starting the Server
-
-1. **Start the main RAG server**
-```bash
 python rag_server.py
 ```
-Server will be available at `http://localhost:8000`
 
-2. **Start the GPU reranker** (in Google Colab)
-```python
-# Run all cells in Colab_reranker_instance.ipynb
+Starts on `http://0.0.0.0:8000`.
+
+**Health check:**
 ```
-
-### API Endpoints
-
-#### Main RAG Endpoint
-```http
-POST /hackrx/run
-Authorization: Bearer your-token-here
-Content-Type: application/json
-
-{
-  "documents": "https://example.com/document.pdf",
-  "questions": [
-    "What is the main topic of this document?",
-    "What are the key findings?"
-  ]
-}
-```
-
-#### Health Check
-```http
 GET /health
 ```
 
-#### API Documentation
-Visit `http://localhost:8000/docs` for interactive API documentation.
+**Query endpoint** (Bearer token required):
+```
+POST /hackrx/run
+Authorization: Bearer 0d40085aa1ab7502b99a71688edfb832121051dc7afd7ad9c3f4acff3c4fe176
+Content-Type: application/json
 
-### Example Usage
-
-```python
-import requests
-
-url = "http://localhost:8000/hackrx/run"
-headers = {
-    "Authorization": "Bearer your-token-here",
-    "Content-Type": "application/json"
+{
+  "documents": "https://example.com/policy.pdf",
+  "questions": ["What is the age limit for a dependent child?"]
 }
-
-data = {
-    "documents": "https://hackrx.blob.core.windows.net/assets/policy.pdf",
-    "questions": [
-        "What does the policy cover for train cancellations?",
-        "Are riots covered under this insurance policy?"
-    ]
-}
-
-response = requests.post(url, json=data, headers=headers)
-result = response.json()
-
-for i, answer in enumerate(result["answers"]):
-    print(f"Q{i+1}: {data['questions'][i]}")
-    print(f"A{i+1}: {answer}\n")
 ```
 
-## ⚡ Performance Optimizations
+`documents` and `questions` each accept a single string or a list of strings.
 
-### Caching Strategy
-- **Document Cache**: Stores parsed documents and embeddings
-- **PDF Cache**: Caches downloaded PDFs to avoid re-downloading
-- **Embedding Cache**: Reuses embeddings for repeated documents
-
-### Parallel Processing
-- **Concurrent Downloads**: Up to 50 parallel range requests
-- **Batch Embeddings**: Process up to 256 texts simultaneously  
-- **Async Operations**: Non-blocking I/O throughout the pipeline
-
-### Memory Management
-- **Lazy Imports**: Load heavy libraries only when needed
-- **Efficient Data Structures**: NumPy arrays for embeddings
-- **Garbage Collection**: Explicit cleanup of large objects
-
-## 🔧 Configuration
-
-Key configuration parameters in `rag_app.py`:
-
-```python
-CHUNK_SIZE = 500                    # Token size per chunk
-CHUNK_OVERLAP = 60                  # Overlap between chunks
-TOP_K_CANDIDATES = 50               # Initial retrieval candidates
-FINAL_TOP_K = 30                    # After MMR filtering
-RERANK_TOP_K = 3                    # Final reranked results
-EMBEDDING_MODEL = "text-embedding-3-small"
-COMPLETION_MODEL = "gpt-4.1-nano"
-MAX_CONCURRENT_EMBEDDINGS = 100     # Parallel embedding requests
-MAX_CONCURRENT_COMPLETIONS = 10     # Parallel completion requests
+**Response:**
+```json
+{ "answers": ["The dependent child age limit is 25 years."] }
 ```
 
-## 🐛 Troubleshooting
+## Run standalone (demo)
 
-### Common Issues
+```
+python rag_app.py
+```
 
-1. **OpenAI API Rate Limits**
-   - Reduce `MAX_CONCURRENT_EMBEDDINGS` and `MAX_CONCURRENT_COMPLETIONS`
-   - Implement exponential backoff
+Runs against a hardcoded sample PDF and prints answers to stdout. Edit `main()` at the bottom of `rag_app.py` to change the URLs and questions.
 
-2. **Memory Issues**
-   - Reduce `BATCH_SIZE` in reranker
-   - Clear cache periodically
+## Caching
 
-3. **Slow Performance**
-   - Ensure GPU reranker is running
-   - Check network connectivity to ngrok tunnel
-   - Verify caching is working
+Processed documents (chunks, embeddings, BM25/FAISS indices) are cached under:
+- Windows: `%LOCALAPPDATA%\Temp\rag_cache\`
+- Raw PDF bytes: `%LOCALAPPDATA%\Temp\pdf_cache\`
 
-4. **Document Parsing Errors**
-   - Ensure document URLs are accessible
-   - Check file format support (PDF, DOCX, email)
+Cache is keyed by URL. Subsequent requests for the same document skip all processing.
 
-### Logs and Monitoring
+## Configuration
 
-The system provides detailed logging:
-- Request/response timing
-- Cache hit/miss rates
-- Processing pipeline stages
-- Error tracking with stack traces
+All tuneable constants are at the top of `rag_app.py`:
+
+| Constant | Default | Purpose |
+|---|---|---|
+| `CHUNK_SIZE` | 600 | Words per chunk |
+| `CHUNK_OVERLAP` | 150 | Overlap between chunks |
+| `TOP_K_CANDIDATES` | 50 | Candidates from hybrid search |
+| `FINAL_TOP_K` | 12 | Passages passed to the LLM |
+| `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI embedding model |
+| `COMPLETION_MODEL` | `gpt-4o-mini` | OpenAI completion model |
